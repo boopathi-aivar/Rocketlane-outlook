@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rocketlane Project Status</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f5f6f7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, Helvetica, sans-serif; color:#202124;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f5f6f7;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="640" style="background:#ffffff; border-radius:8px; overflow:hidden; max-width:640px; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+          <tr>
+            <td style="background:#1a73e8; padding:24px; color:#ffffff;">
+              <div style="font-size:22px; font-weight:700; line-height:1.2;">Project Status Report</div>
+              <div style="font-size:14px; opacity:0.92; margin-top:6px;">{{reportDate}}</div>
+            </td>
+          </tr>
+
+          {{#if totalCount}}
+            {{#if hasChart}}
+              <tr>
+                <td style="padding:24px 24px 8px; text-align:center;">
+                  <img src="cid:{{chartCid}}" alt="Blocked vs Delayed summary chart" width="500" style="max-width:100%; height:auto; border:0;">
+                </td>
+              </tr>
+            {{/if}}
+
+            <tr>
+              <td style="padding:8px 24px 16px; text-align:center; font-size:13px; color:#5f6368;">
+                Projects in flagged status for <strong>{{dayThreshold}}</strong> or more days are highlighted as urgent.
+              </td>
+            </tr>
+
+            {{#if blocked.length}}
+              <tr>
+                <td style="padding:8px 24px;">
+                  <div style="font-size:18px; font-weight:700; color:#d93025; margin-bottom:10px;">
+                    Blocked &middot; {{blocked.length}}
+                  </div>
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse; font-size:13px;">
+                    <thead>
+                      <tr style="background:#fafafa;">
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Project</th>
+                        <th align="right" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Days</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Owner</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Reason</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Updated</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {{#each blocked}}
+                        <tr style="background:{{#if isUrgent}}#fff3cd{{else}}#ffffff{{/if}};">
+                          <td style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top;">
+                            <a href="{{url}}" style="color:#1a73e8; text-decoration:none; font-weight:600;">{{name}}</a>
+                            {{#if isUrgent}}<span style="display:inline-block; padding:2px 6px; background:#d93025; color:#ffffff; font-size:10px; font-weight:700; border-radius:3px; margin-left:6px; vertical-align:middle;">URGENT</span>{{/if}}
+                          </td>
+                          <td align="right" style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top; font-weight:700; color:{{#if isUrgent}}#d93025{{else}}#202124{{/if}};">{{daysInStatus}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top;">{{owner}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top; color:#5f6368;">{{reason}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top; color:#5f6368; white-space:nowrap;">{{formatDate lastUpdatedAt}}</td>
+                        </tr>
+                      {{/each}}
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+            {{/if}}
+
+            {{#if delayed.length}}
+              <tr>
+                <td style="padding:20px 24px 24px;">
+                  <div style="font-size:18px; font-weight:700; color:#b78103; margin-bottom:10px;">
+                    Delayed &middot; {{delayed.length}}
+                  </div>
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse; font-size:13px;">
+                    <thead>
+                      <tr style="background:#fafafa;">
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Project</th>
+                        <th align="right" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Days</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Owner</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Reason</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Updated</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {{#each delayed}}
+                        <tr style="background:{{#if isUrgent}}#fff3cd{{else}}#ffffff{{/if}};">
+                          <td style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top;">
+                            <a href="{{url}}" style="color:#1a73e8; text-decoration:none; font-weight:600;">{{name}}</a>
+                            {{#if isUrgent}}<span style="display:inline-block; padding:2px 6px; background:#d93025; color:#ffffff; font-size:10px; font-weight:700; border-radius:3px; margin-left:6px; vertical-align:middle;">URGENT</span>{{/if}}
+                          </td>
+                          <td align="right" style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top; font-weight:700; color:{{#if isUrgent}}#d93025{{else}}#202124{{/if}};">{{daysInStatus}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top;">{{owner}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top; color:#5f6368;">{{reason}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top; color:#5f6368; white-space:nowrap;">{{formatDate lastUpdatedAt}}</td>
+                        </tr>
+                      {{/each}}
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+            {{/if}}
+          {{else}}
+            <tr>
+              <td style="padding:48px 24px; text-align:center;">
+                <div style="font-size:20px; color:#34a853; font-weight:700;">All clear.</div>
+                <div style="font-size:14px; color:#5f6368; margin-top:8px;">No projects are currently blocked or delayed.</div>
+              </td>
+            </tr>
+          {{/if}}
+
+          <tr>
+            <td style="padding:16px 24px; background:#fafafa; border-top:1px solid #e0e0e0; font-size:12px; color:#9aa0a6; text-align:center;">
+              Automated by the Rocketlane Status Email job &middot; Update the day threshold or recipients in AWS Systems Manager Parameter Store.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

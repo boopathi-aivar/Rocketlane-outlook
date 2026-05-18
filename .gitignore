@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.aws-sam/
+.env
+*.log
+samconfig.toml
+local/output/

@@ -1,0 +1,213 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Rocketlane daily project status email (blocked/delayed projects)
+
+Parameters:
+  Stage:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, staging, prod]
+  ScheduleExpression:
+    Type: String
+    Default: 'cron(0 13 ? * MON-FRI *)'
+    Description: When the daily job runs (UTC). Default = 13:00 UTC (Mon-Fri).
+  SenderEmail:
+    Type: String
+    Description: Verified SES sender address (e.g. status@yourdomain.com).
+  AdminEmail:
+    Type: String
+    Description: Email address that receives failure alerts.
+  DayThreshold:
+    Type: Number
+    Default: 7
+    Description: Projects in flagged status for this many days or longer are marked urgent.
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Architectures: [arm64]
+    MemorySize: 1024
+    Timeout: 300
+    LoggingConfig:
+      LogFormat: JSON
+
+Resources:
+  TemplateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'rocketlane-status-email-${AWS::AccountId}-${Stage}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+
+  StatusHistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'rocketlane-status-history-${Stage}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: projectId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: projectId
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  RocketlaneApiKeySecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub 'rocketlane/api-key-${Stage}'
+      Description: Rocketlane API key for status email job
+
+  AdminAlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'rocketlane-status-email-alerts-${Stage}'
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref AdminEmail
+
+  StatusEmailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'rocketlane-status-email-${Stage}'
+      CodeUri: ./dist
+      Handler: index.handler
+      Description: Daily blocked/delayed Rocketlane projects status email
+      Environment:
+        Variables:
+          PARAM_PREFIX: !Sub '/rocketlane-status-email/${Stage}'
+          ROCKETLANE_SECRET_ID: !Ref RocketlaneApiKeySecret
+          NODE_OPTIONS: '--enable-source-maps'
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParametersByPath
+                - ssm:GetParameter
+                - ssm:GetParameters
+              Resource:
+                - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/rocketlane-status-email/${Stage}'
+                - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/rocketlane-status-email/${Stage}/*'
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref RocketlaneApiKeySecret
+        - S3ReadPolicy:
+            BucketName: !Ref TemplateBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StatusHistoryTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendRawEmail
+                - ses:SendEmail
+              Resource: '*'
+      Events:
+        DailySchedule:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: !Ref ScheduleExpression
+            Description: Daily Rocketlane status email trigger
+
+  ErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'rocketlane-status-email-errors-${Stage}'
+      AlarmDescription: Triggers when the status email Lambda fails
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref StatusEmailFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AdminAlertTopic
+
+  # ---- Config parameters (editable without redeploy) ----
+  DayThresholdParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/rocketlane-status-email/${Stage}/day_threshold'
+      Type: String
+      Value: !Ref DayThreshold
+
+  RecipientsParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/rocketlane-status-email/${Stage}/recipients'
+      Type: String
+      Value: 'leadership@example.com'
+      Description: Comma-separated recipient list. Update after deploy.
+
+  SenderParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/rocketlane-status-email/${Stage}/sender'
+      Type: String
+      Value: !Ref SenderEmail
+
+  RocketlaneBaseUrlParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/rocketlane-status-email/${Stage}/rocketlane_base_url'
+      Type: String
+      Value: 'https://api.rocketlane.com/api/1.0'
+
+  TemplateBucketParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/rocketlane-status-email/${Stage}/template_bucket'
+      Type: String
+      Value: !Ref TemplateBucket
+
+  TemplateKeyParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/rocketlane-status-email/${Stage}/template_key'
+      Type: String
+      Value: 'templates/status-email.html'
+
+  HistoryTableParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/rocketlane-status-email/${Stage}/history_table_name'
+      Type: String
+      Value: !Ref StatusHistoryTable
+
+  UseHistoryTableParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/rocketlane-status-email/${Stage}/use_history_table'
+      Type: String
+      Value: 'true'
+      Description: Set to 'false' once Rocketlane API exposes statusUpdatedAt reliably.
+
+Outputs:
+  FunctionName:
+    Description: Lambda function name
+    Value: !Ref StatusEmailFunction
+  TemplateBucket:
+    Description: S3 bucket holding the email template
+    Value: !Ref TemplateBucket
+  HistoryTable:
+    Description: DynamoDB table tracking status history
+    Value: !Ref StatusHistoryTable
+  SecretArn:
+    Description: Secrets Manager ARN for the Rocketlane API key
+    Value: !Ref RocketlaneApiKeySecret
+  AlertTopic:
+    Description: SNS topic for failure alerts
+    Value: !Ref AdminAlertTopic
