@@ -61,8 +61,12 @@ export async function loadConfig(): Promise<AppConfig> {
     ),
     templateBucket: required('template_bucket'),
     templateKey: optional('template_key', 'templates/status-email.html'),
+    logoKey: optional('logo_key', 'templates/assets/aivar-logo.png'),
     historyTableName: optional('history_table_name', ''),
     useHistoryTable: optional('use_history_table', 'false') === 'true',
+    graphTenantId: required('graph_tenant_id'),
+    graphClientId: required('graph_client_id'),
+    graphClientSecret: required('graph_client_secret'),
   };
 
   return cachedConfig;

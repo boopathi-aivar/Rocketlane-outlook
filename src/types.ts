@@ -7,6 +7,9 @@ export interface RocketlaneProject {
   statusUpdatedAt?: string;
   owner: string;
   ownerEmail?: string;
+  deliveryManager: string;
+  csm: string;
+  accountManager: string;
   reason: string;
   lastUpdatedAt: string;
   url: string;
@@ -17,6 +20,12 @@ export interface FlaggedProject extends RocketlaneProject {
   isUrgent: boolean;
 }
 
+export interface RoleBucket {
+  label: string;
+  blocked: number;
+  delayed: number;
+}
+
 export interface AppConfig {
   dayThreshold: number;
   recipients: string[];
@@ -24,8 +33,12 @@ export interface AppConfig {
   rocketlaneBaseUrl: string;
   templateBucket: string;
   templateKey: string;
+  logoKey: string;
   historyTableName: string;
   useHistoryTable: boolean;
+  graphTenantId: string;
+  graphClientId: string;
+  graphClientSecret: string;
 }
 
 export interface RenderInput {
@@ -34,6 +47,14 @@ export interface RenderInput {
   totalCount: number;
   dayThreshold: number;
   reportDate: string;
-  chartCid: string;
-  hasChart: boolean;
+  logoCid: string;
+  hasLogo: boolean;
+  summaryChartCid: string;
+  hasSummaryChart: boolean;
+  dmChartCid: string;
+  hasDmChart: boolean;
+  csmChartCid: string;
+  hasCsmChart: boolean;
+  amChartCid: string;
+  hasAmChart: boolean;
 }

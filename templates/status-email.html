@@ -3,62 +3,110 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rocketlane Project Status</title>
+  <title>AIVAR Delivery Status</title>
 </head>
-<body style="margin:0; padding:0; background-color:#f5f6f7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, Helvetica, sans-serif; color:#202124;">
-  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f5f6f7;">
+<body style="margin:0; padding:0; background-color:#f4f5f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, Helvetica, sans-serif; color:#3d495e;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f4f5f8;">
     <tr>
       <td align="center" style="padding:24px 12px;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="640" style="background:#ffffff; border-radius:8px; overflow:hidden; max-width:640px; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="900" style="background:#ffffff; border-radius:12px; overflow:hidden; max-width:900px; box-shadow:0 2px 6px rgba(61,73,94,0.10);">
           <tr>
-            <td style="background:#1a73e8; padding:24px; color:#ffffff;">
-              <div style="font-size:22px; font-weight:700; line-height:1.2;">Project Status Report</div>
-              <div style="font-size:14px; opacity:0.92; margin-top:6px;">{{reportDate}}</div>
+            <td style="background:#3d495e; padding:24px 28px; color:#ffffff;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="vertical-align:middle;">
+                    {{#if hasLogo}}
+                      <img src="cid:{{logoCid}}" alt="AIVAR" height="48" style="display:block; height:48px; width:auto; border:0; background:transparent;">
+                    {{else}}
+                      <div style="font-size:24px; font-weight:800; letter-spacing:2px; line-height:1.1;"><span style="color:#7a68ff;">AI</span>VAR</div>
+                      <div style="font-size:11px; opacity:0.75; letter-spacing:3px; margin-top:2px;">DELIVERY</div>
+                    {{/if}}
+                  </td>
+                  <td align="right" style="vertical-align:middle;">
+                    <div style="font-size:18px; font-weight:700; line-height:1.2;">Project Status Report</div>
+                    <div style="font-size:13px; opacity:0.85; margin-top:4px;">{{reportDate}}</div>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
+          <tr>
+            <td style="height:4px; background:#7a68ff; line-height:4px; font-size:0;">&nbsp;</td>
+          </tr>
+
           {{#if totalCount}}
-            {{#if hasChart}}
+            {{#if hasSummaryChart}}
               <tr>
                 <td style="padding:24px 24px 8px; text-align:center;">
-                  <img src="cid:{{chartCid}}" alt="Blocked vs Delayed summary chart" width="500" style="max-width:100%; height:auto; border:0;">
+                  <img src="cid:{{summaryChartCid}}" alt="Blocked vs Delayed summary" width="560" style="max-width:100%; height:auto; border:0;">
                 </td>
               </tr>
             {{/if}}
 
             <tr>
-              <td style="padding:8px 24px 16px; text-align:center; font-size:13px; color:#5f6368;">
-                Projects in flagged status for <strong>{{dayThreshold}}</strong> or more days are highlighted as urgent.
+              <td style="padding:4px 24px 16px; text-align:center; font-size:13px; color:#5a6679;">
+                Projects in flagged status for <strong style="color:#3d495e;">{{dayThreshold}}</strong> or more days are highlighted as urgent.
               </td>
             </tr>
 
+            {{#if hasDmChart}}
+              <tr>
+                <td style="padding:8px 24px; text-align:center;">
+                  <img src="cid:{{dmChartCid}}" alt="Workload by Delivery Manager" width="820" style="max-width:100%; height:auto; border:0;">
+                </td>
+              </tr>
+            {{/if}}
+
+            {{#if hasCsmChart}}
+              <tr>
+                <td style="padding:8px 24px; text-align:center;">
+                  <img src="cid:{{csmChartCid}}" alt="Workload by CSM" width="820" style="max-width:100%; height:auto; border:0;">
+                </td>
+              </tr>
+            {{/if}}
+
+            {{#if hasAmChart}}
+              <tr>
+                <td style="padding:8px 24px 16px; text-align:center;">
+                  <img src="cid:{{amChartCid}}" alt="Workload by Account Manager" width="820" style="max-width:100%; height:auto; border:0;">
+                </td>
+              </tr>
+            {{/if}}
+
             {{#if blocked.length}}
               <tr>
-                <td style="padding:8px 24px;">
+                <td style="padding:12px 24px;">
                   <div style="font-size:18px; font-weight:700; color:#d93025; margin-bottom:10px;">
                     Blocked &middot; {{blocked.length}}
                   </div>
-                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse; font-size:13px;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse; font-size:12px;">
                     <thead>
-                      <tr style="background:#fafafa;">
-                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Project</th>
-                        <th align="right" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Days</th>
-                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Owner</th>
-                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Reason</th>
-                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Updated</th>
+                      <tr style="background:#f4f5f8;">
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Project</th>
+                        <th align="right" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Days</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Owner</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">DM</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">CSM</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Account Mgr</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Action Item</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Updated</th>
                       </tr>
                     </thead>
                     <tbody>
                       {{#each blocked}}
                         <tr style="background:{{#if isUrgent}}#fff3cd{{else}}#ffffff{{/if}};">
-                          <td style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top;">
-                            <a href="{{url}}" style="color:#1a73e8; text-decoration:none; font-weight:600;">{{name}}</a>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top;">
+                            <a href="{{url}}" style="color:#7a68ff; text-decoration:none; font-weight:700;">{{name}}</a>
                             {{#if isUrgent}}<span style="display:inline-block; padding:2px 6px; background:#d93025; color:#ffffff; font-size:10px; font-weight:700; border-radius:3px; margin-left:6px; vertical-align:middle;">URGENT</span>{{/if}}
                           </td>
-                          <td align="right" style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top; font-weight:700; color:{{#if isUrgent}}#d93025{{else}}#202124{{/if}};">{{daysInStatus}}</td>
-                          <td style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top;">{{owner}}</td>
-                          <td style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top; color:#5f6368;">{{reason}}</td>
-                          <td style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top; color:#5f6368; white-space:nowrap;">{{formatDate lastUpdatedAt}}</td>
+                          <td align="right" style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; font-weight:700; color:{{#if isUrgent}}#d93025{{else}}#3d495e{{/if}};">{{daysInStatus}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; color:#3d495e;">{{owner}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; color:#3d495e;">{{deliveryManager}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; color:#3d495e;">{{csm}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; color:#3d495e;">{{accountManager}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; color:#5a6679;">{{reason}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; color:#5a6679; white-space:nowrap;">{{formatDate lastUpdatedAt}}</td>
                         </tr>
                       {{/each}}
                     </tbody>
@@ -73,27 +121,33 @@
                   <div style="font-size:18px; font-weight:700; color:#b78103; margin-bottom:10px;">
                     Delayed &middot; {{delayed.length}}
                   </div>
-                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse; font-size:13px;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse; font-size:12px;">
                     <thead>
-                      <tr style="background:#fafafa;">
-                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Project</th>
-                        <th align="right" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Days</th>
-                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Owner</th>
-                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Reason</th>
-                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #e0e0e0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#5f6368;">Updated</th>
+                      <tr style="background:#f4f5f8;">
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Project</th>
+                        <th align="right" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Days</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Owner</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">DM</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">CSM</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Account Mgr</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Action Item</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Updated</th>
                       </tr>
                     </thead>
                     <tbody>
                       {{#each delayed}}
                         <tr style="background:{{#if isUrgent}}#fff3cd{{else}}#ffffff{{/if}};">
-                          <td style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top;">
-                            <a href="{{url}}" style="color:#1a73e8; text-decoration:none; font-weight:600;">{{name}}</a>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top;">
+                            <a href="{{url}}" style="color:#7a68ff; text-decoration:none; font-weight:700;">{{name}}</a>
                             {{#if isUrgent}}<span style="display:inline-block; padding:2px 6px; background:#d93025; color:#ffffff; font-size:10px; font-weight:700; border-radius:3px; margin-left:6px; vertical-align:middle;">URGENT</span>{{/if}}
                           </td>
-                          <td align="right" style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top; font-weight:700; color:{{#if isUrgent}}#d93025{{else}}#202124{{/if}};">{{daysInStatus}}</td>
-                          <td style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top;">{{owner}}</td>
-                          <td style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top; color:#5f6368;">{{reason}}</td>
-                          <td style="padding:12px 8px; border-bottom:1px solid #eee; vertical-align:top; color:#5f6368; white-space:nowrap;">{{formatDate lastUpdatedAt}}</td>
+                          <td align="right" style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; font-weight:700; color:{{#if isUrgent}}#d93025{{else}}#3d495e{{/if}};">{{daysInStatus}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; color:#3d495e;">{{owner}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; color:#3d495e;">{{deliveryManager}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; color:#3d495e;">{{csm}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; color:#3d495e;">{{accountManager}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; color:#5a6679;">{{reason}}</td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; color:#5a6679; white-space:nowrap;">{{formatDate lastUpdatedAt}}</td>
                         </tr>
                       {{/each}}
                     </tbody>
@@ -105,14 +159,14 @@
             <tr>
               <td style="padding:48px 24px; text-align:center;">
                 <div style="font-size:20px; color:#34a853; font-weight:700;">All clear.</div>
-                <div style="font-size:14px; color:#5f6368; margin-top:8px;">No projects are currently blocked or delayed.</div>
+                <div style="font-size:14px; color:#5a6679; margin-top:8px;">No projects are currently blocked or delayed.</div>
               </td>
             </tr>
           {{/if}}
 
           <tr>
-            <td style="padding:16px 24px; background:#fafafa; border-top:1px solid #e0e0e0; font-size:12px; color:#9aa0a6; text-align:center;">
-              Automated by the Rocketlane Status Email job &middot; Update the day threshold or recipients in AWS Systems Manager Parameter Store.
+            <td style="padding:18px 24px; background:#f4f5f8; border-top:1px solid #d8dde6; font-size:12px; color:#5a6679; text-align:center;">
+              <span style="color:#7a68ff; font-weight:700;">AI</span><span style="color:#3d495e; font-weight:700;">VAR</span> Delivery &middot; Automated status digest
             </td>
           </tr>
         </table>

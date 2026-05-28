@@ -1,24 +1,32 @@
 /**
- * Local runner — no AWS required.
+ * Local Microsoft Graph send.
  *
- * Bypasses:  SSM → env vars
- *            Secrets Manager → ROCKETLANE_API_KEY env var
- *            S3  → reads templates/status-email.html from disk
- *            DynamoDB → local JSON file (local/output/.history.json)
- *            SES → writes local/output/email.html + email.txt instead of sending
+ * Builds the same email as `npm run local-run` then actually sends it via
+ * Microsoft Graph using the credentials in local/.env. By design this is a
+ * separate script from local-run so dev iterations don't accidentally fire
+ * real emails.
  *
  * Usage:
- *   cp local/.env.example local/.env   # fill in your API key
- *   npm run local-run
- *   open local/output/email.html
+ *   # Default recipient comes from TEST_RECIPIENT in local/.env:
+ *   npm run local-send
+ *
+ *   # Override / supply the recipient:
+ *   npm run local-send -- --to you@aivar.tech
+ *
+ *   # Multiple recipients (comma-separated):
+ *   npm run local-send -- --to you@aivar.tech,other@aivar.tech
+ *
+ *   # Dry-run (build the MIME and print the size, but don't send):
+ *   npm run local-send -- --to you@aivar.tech --dry-run
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import Handlebars from 'handlebars';
 import { RocketlaneClient } from '../src/rocketlane';
 import { renderSummaryChart, renderRoleStackedChart } from '../src/chart';
 import { renderPlainText } from '../src/render';
+import { sendEmail, type InlineImage } from '../src/send';
 import { reconcileLocalHistory } from './history';
 import type {
   FlaggedProject,
@@ -34,7 +42,6 @@ const DM_CID = 'dm-chart@rocketlane';
 const CSM_CID = 'csm-chart@rocketlane';
 const AM_CID = 'am-chart@rocketlane';
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
-const OUT_DIR = resolve(__dirname, 'output');
 
 function loadDotEnv(path: string): void {
   if (!existsSync(path)) return;
@@ -53,28 +60,58 @@ function requireEnv(key: string): string {
   const v = process.env[key];
   if (!v) {
     console.error(`ERROR: Missing required env var: ${key}`);
-    console.error(`       Copy local/.env.example to local/.env and fill it in.`);
     process.exit(1);
   }
   return v;
 }
 
+function parseArgs(argv: string[]): { to: string[]; dryRun: boolean } {
+  let to = '';
+  let dryRun = false;
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--to' && argv[i + 1]) {
+      to = argv[i + 1]!;
+      i++;
+    } else if (argv[i] === '--dry-run') {
+      dryRun = true;
+    }
+  }
+  if (!to) to = process.env.TEST_RECIPIENT ?? '';
+  const recipients = to
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return { to: recipients, dryRun };
+}
+
 async function main(): Promise<void> {
   const now = new Date();
+  const { to, dryRun } = parseArgs(process.argv.slice(2));
+
+  if (to.length === 0) {
+    console.error(
+      'ERROR: No recipient. Pass --to addr@example.com or set TEST_RECIPIENT in local/.env',
+    );
+    process.exit(1);
+  }
 
   const apiKey = requireEnv('ROCKETLANE_API_KEY');
+  const tenantId = requireEnv('GRAPH_TENANT_ID');
+  const clientId = requireEnv('GRAPH_CLIENT_ID');
+  const clientSecret = requireEnv('GRAPH_CLIENT_SECRET');
+  const sender = requireEnv('GRAPH_SENDER');
   const baseUrl =
     process.env.ROCKETLANE_BASE_URL ?? 'https://api.rocketlane.com/api/1.0';
   const dayThreshold = parseInt(process.env.DAY_THRESHOLD ?? '7', 10);
 
-  console.log('Local run started', { runAt: now.toISOString(), baseUrl, dayThreshold });
+  console.log('Building email', { sender, recipients: to, dryRun });
 
   const client = new RocketlaneClient(baseUrl, apiKey);
   const projects = await client.fetchFlaggedProjects();
   console.log(`Fetched ${projects.length} flagged project(s)`);
 
-  // Mirror prod: prefer API's statusUpdatedAt, else fall back to the locally-tracked
-  // JSON history file (analogue of the DynamoDB table used in production).
+  // Use the same JSON-file history stub as local/run.ts so days-in-status
+  // matches the preview and the URGENT badge fires correctly.
   const sinceMap = reconcileLocalHistory(projects, now);
 
   const flagged: FlaggedProject[] = projects.map((p) => {
@@ -122,7 +159,6 @@ async function main(): Promise<void> {
     renderRoleStackedChart(bucket((p) => p.accountManager), 'Workload by Account Manager'),
   ]);
 
-  // Logo: read from disk instead of S3 in local mode.
   const logoPath = resolve(__dirname, '..', 'templates', 'assets', 'aivar-logo.png');
   const logoPng = existsSync(logoPath) ? readFileSync(logoPath) : null;
 
@@ -144,55 +180,58 @@ async function main(): Promise<void> {
     hasAmChart: amPng !== null,
   };
 
-  // Load template from local filesystem instead of S3.
-  // Importing renderPlainText above also registers the Handlebars helpers (formatDate, gt).
   const templatePath = resolve(__dirname, '..', 'templates', 'status-email.html');
   const templateSrc = readFileSync(templatePath, 'utf-8');
+  // Importing renderPlainText already registered the Handlebars helpers.
   const template = Handlebars.compile(templateSrc, { noEscape: false });
   const html = template(renderData);
   const text = renderPlainText(renderData);
 
-  if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
+  const subject =
+    blocked.length === 0 && delayed.length === 0
+      ? `Rocketlane status — All clear (${reportDate})`
+      : `Rocketlane status — ${blocked.length} blocked, ${delayed.length} delayed (${reportDate})`;
 
-  const htmlOut = resolve(OUT_DIR, 'email.html');
-  const textOut = resolve(OUT_DIR, 'email.txt');
-  writeFileSync(htmlOut, html, 'utf-8');
-  writeFileSync(textOut, text, 'utf-8');
+  const inlineImages: InlineImage[] = [];
+  if (logoPng) inlineImages.push({ cid: LOGO_CID, png: logoPng, filename: 'aivar-logo.png' });
+  if (summaryPng) inlineImages.push({ cid: SUMMARY_CID, png: summaryPng, filename: 'summary.png' });
+  if (dmPng) inlineImages.push({ cid: DM_CID, png: dmPng, filename: 'by-delivery-manager.png' });
+  if (csmPng) inlineImages.push({ cid: CSM_CID, png: csmPng, filename: 'by-csm.png' });
+  if (amPng) inlineImages.push({ cid: AM_CID, png: amPng, filename: 'by-account-manager.png' });
 
-  if (summaryPng) writeFileSync(resolve(OUT_DIR, 'chart.png'), summaryPng);
-  if (dmPng) writeFileSync(resolve(OUT_DIR, 'chart-dm.png'), dmPng);
-  if (csmPng) writeFileSync(resolve(OUT_DIR, 'chart-csm.png'), csmPng);
-  if (amPng) writeFileSync(resolve(OUT_DIR, 'chart-am.png'), amPng);
-
-  // Build a browser-viewable preview that inlines all chart PNGs as data URIs,
-  // since cid: references only resolve inside email clients.
-  const inlineMap: Record<string, Buffer | null> = {
-    [LOGO_CID]: logoPng,
-    [SUMMARY_CID]: summaryPng,
-    [DM_CID]: dmPng,
-    [CSM_CID]: csmPng,
-    [AM_CID]: amPng,
-  };
-  let preview = html;
-  for (const [cid, png] of Object.entries(inlineMap)) {
-    if (!png) continue;
-    const uri = `data:image/png;base64,${png.toString('base64')}`;
-    preview = preview.split(`cid:${cid}`).join(uri);
+  if (dryRun) {
+    console.log('DRY RUN — not calling Graph');
+    console.log({
+      sender,
+      recipients: to,
+      subject,
+      attachments: inlineImages.length,
+      htmlBytes: html.length,
+      textBytes: text.length,
+    });
+    return;
   }
-  writeFileSync(resolve(OUT_DIR, 'email-preview.html'), preview, 'utf-8');
 
-  console.log(`HTML        → ${htmlOut}`);
-  console.log(`Preview     → ${resolve(OUT_DIR, 'email-preview.html')}`);
-  console.log(`Text        → ${textOut}`);
-  console.log('Done', {
+  console.log('Sending via Microsoft Graph…');
+  const requestId = await sendEmail({
+    sender,
+    recipients: to,
+    subject,
+    html,
+    text,
+    inlineImages,
+    creds: { tenantId, clientId, clientSecret },
+  });
+
+  console.log('Sent.', {
+    requestId,
     blocked: blocked.length,
     delayed: delayed.length,
-    urgent: flagged.filter((p) => p.isUrgent).length,
-    charts: [summaryPng, dmPng, csmPng, amPng].filter(Boolean).length,
+    recipients: to,
   });
 }
 
 main().catch((err) => {
-  console.error(err);
+  console.error(err?.message ?? err);
   process.exit(1);
 });

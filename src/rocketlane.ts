@@ -84,14 +84,18 @@ export class RocketlaneClient {
         'Unassigned'
       : r.ownerName ?? 'Unassigned';
 
-    // Reason: stored in custom fields array under "Current Status_Desc" or "Action Item"
-    const reason =
-      r.statusReason ??
-      r.reason ??
-      r.projectStatus?.reason ??
-      extractField(r.fields, 'Current Status_Desc') ??
-      extractField(r.fields, 'Action Item') ??
-      '—';
+    // Reason: per spec, picked from the "Action Item" custom field (HTML stripped).
+    const reason = extractField(r.fields, 'Action Item') ?? '—';
+
+    // Role assignments live in custom fields. Values are sometimes plain names
+    // (e.g. "Aadarsh") and sometimes emails (e.g. "agilan.ks@aivar.tech").
+    const deliveryManager = humanize(
+      extractField(r.fields, 'Delivery Manager') ?? 'Unassigned',
+    );
+    const csm = humanize(extractField(r.fields, 'CSM') ?? 'Unassigned');
+    const accountManager = humanize(
+      extractField(r.fields, 'Account Manager') ?? 'Unassigned',
+    );
 
     // lastUpdatedAt: API returns a Unix millisecond timestamp, not an ISO string
     const updatedAtMs = r.updatedAt ?? r.lastUpdatedAt;
@@ -106,6 +110,9 @@ export class RocketlaneClient {
       statusUpdatedAt: statusUpdatedAt ? String(statusUpdatedAt) : undefined,
       owner: ownerName,
       ownerEmail: ownerObj?.emailId ?? ownerObj?.email,
+      deliveryManager,
+      csm,
+      accountManager,
       reason,
       lastUpdatedAt,
       url:
@@ -121,9 +128,36 @@ function extractField(fields: unknown, label: string): string | undefined {
   const field = (fields as Record<string, any>[]).find(
     (f) => f.fieldLabel === label,
   );
-  if (!field || typeof field.fieldValue !== 'string' || !field.fieldValue) {
-    return undefined;
-  }
-  const plain = field.fieldValue.replace(/<[^>]+>/g, '').trim();
+  if (!field) return undefined;
+  const raw =
+    typeof field.fieldValueLabel === 'string' && field.fieldValueLabel
+      ? field.fieldValueLabel
+      : typeof field.fieldValue === 'string'
+        ? field.fieldValue
+        : undefined;
+  if (!raw) return undefined;
+  const plain = raw
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
   return plain || undefined;
+}
+
+// Convert an email like "akshay.shetty@aivar.tech" → "Akshay Shetty".
+// Plain names ("Aadarsh") and free text ("Unassigned") pass through unchanged.
+function humanize(value: string): string {
+  if (!value) return 'Unassigned';
+  const trimmed = value.trim();
+  if (!trimmed.includes('@')) return trimmed;
+  const local = trimmed.split('@')[0] ?? '';
+  if (!local) return trimmed;
+  return local
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
 }

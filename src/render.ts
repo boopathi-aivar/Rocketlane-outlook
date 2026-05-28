@@ -6,6 +6,8 @@ const s3 = new S3Client({});
 
 let templateCache: HandlebarsTemplateDelegate | null = null;
 let templateEtag: string | null = null;
+let logoCache: Buffer | null = null;
+let logoEtag: string | null = null;
 
 Handlebars.registerHelper('formatDate', (iso: unknown) => {
   if (!iso || typeof iso !== 'string') return '—';
@@ -43,6 +45,25 @@ export async function renderHtml(
   return template(data);
 }
 
+export async function loadLogo(
+  bucket: string,
+  key: string,
+): Promise<Buffer | null> {
+  try {
+    const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    if (logoCache && res.ETag && res.ETag === logoEtag) {
+      return logoCache;
+    }
+    const bytes = await res.Body!.transformToByteArray();
+    logoCache = Buffer.from(bytes);
+    logoEtag = res.ETag ?? null;
+    return logoCache;
+  } catch (err) {
+    console.warn(`Logo not found at s3://${bucket}/${key} — skipping`, err);
+    return null;
+  }
+}
+
 export function renderPlainText(data: RenderInput): string {
   const lines: string[] = [];
   lines.push(`Rocketlane Project Status Report — ${data.reportDate}`);
@@ -68,7 +89,10 @@ export function renderPlainText(data: RenderInput): string {
       lines.push(`* ${p.name}${urgent}`);
       lines.push(`  Days in status: ${p.daysInStatus}`);
       lines.push(`  Owner: ${p.owner}`);
-      lines.push(`  Reason: ${p.reason || '—'}`);
+      lines.push(`  Delivery Manager: ${p.deliveryManager}`);
+      lines.push(`  CSM: ${p.csm}`);
+      lines.push(`  Account Manager: ${p.accountManager}`);
+      lines.push(`  Action Item: ${p.reason || '—'}`);
       lines.push(
         `  Last updated: ${new Date(p.lastUpdatedAt).toLocaleDateString('en-US')}`,
       );
@@ -80,6 +104,6 @@ export function renderPlainText(data: RenderInput): string {
   section('BLOCKED', data.blocked);
   section('DELAYED', data.delayed);
 
-  lines.push('— Automated by Rocketlane Status Email job.');
+  lines.push('— Automated by AIVAR Delivery.');
   return lines.join('\n');
 }

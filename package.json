@@ -9,13 +9,16 @@
     "upload-template": "ts-node scripts/upload-template.ts",
     "deploy": "npm run build && sam deploy",
     "local-run": "ts-node local/run.ts",
-    "local-debug": "ts-node local/debug.ts"
+    "local-debug": "ts-node local/debug.ts",
+    "local-send": "ts-node local/send.ts",
+    "local-test-alert": "ts-node local/test-alert.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.600.0",
     "@aws-sdk/client-s3": "^3.600.0",
     "@aws-sdk/client-secrets-manager": "^3.600.0",
     "@aws-sdk/client-ses": "^3.600.0",
+    "@aws-sdk/client-sns": "^3.600.0",
     "@aws-sdk/client-ssm": "^3.600.0",
     "@aws-sdk/lib-dynamodb": "^3.600.0",
     "axios": "^1.7.0",

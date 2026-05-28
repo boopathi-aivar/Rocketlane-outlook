@@ -13,7 +13,7 @@ Parameters:
     Description: When the daily job runs (UTC). Default = 13:00 UTC (Mon-Fri).
   SenderEmail:
     Type: String
-    Description: Verified SES sender address (e.g. status@yourdomain.com).
+    Description: Microsoft 365 sender mailbox (e.g. status@yourdomain.com).
   AdminEmail:
     Type: String
     Description: Email address that receives failure alerts.
@@ -87,6 +87,7 @@ Resources:
         Variables:
           PARAM_PREFIX: !Sub '/rocketlane-status-email/${Stage}'
           ROCKETLANE_SECRET_ID: !Ref RocketlaneApiKeySecret
+          ADMIN_ALERT_TOPIC_ARN: !Ref AdminAlertTopic
           NODE_OPTIONS: '--enable-source-maps'
       Policies:
         - Statement:
@@ -107,9 +108,8 @@ Resources:
         - Statement:
             - Effect: Allow
               Action:
-                - ses:SendRawEmail
-                - ses:SendEmail
-              Resource: '*'
+                - sns:Publish
+              Resource: !Ref AdminAlertTopic
       Events:
         DailySchedule:
           Type: ScheduleV2
@@ -194,6 +194,34 @@ Resources:
       Type: String
       Value: 'true'
       Description: Set to 'false' once Rocketlane API exposes statusUpdatedAt reliably.
+
+  # Microsoft Graph credentials for sending mail via the project mailbox.
+  # NOTE: graph_client_secret is stored as a plain String here. After deploy,
+  # update it manually to a SecureString via the AWS console / CLI for stronger
+  # protection. Rotate periodically.
+  GraphTenantIdParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/rocketlane-status-email/${Stage}/graph_tenant_id'
+      Type: String
+      Value: 'set-after-deploy'
+      Description: Azure AD tenant (directory) ID. Update via the AWS console after deploy.
+
+  GraphClientIdParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/rocketlane-status-email/${Stage}/graph_client_id'
+      Type: String
+      Value: 'set-after-deploy'
+      Description: Azure AD app (client) ID. Update via the AWS console after deploy.
+
+  GraphClientSecretParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/rocketlane-status-email/${Stage}/graph_client_secret'
+      Type: String
+      Value: 'set-after-deploy'
+      Description: Azure AD client secret. SET VIA AWS CONSOLE — do not commit. Convert to SecureString.
 
 Outputs:
   FunctionName:
