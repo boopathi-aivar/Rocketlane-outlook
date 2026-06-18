@@ -16,37 +16,38 @@ export interface SendInput {
   text: string;
   inlineImages: InlineImage[];
   creds: GraphCreds;
+  threadMessageId?: string; // stored Exchange internetMessageId; absent on first send
 }
 
-export async function sendEmail(input: SendInput): Promise<string> {
-  const raw = buildMime(input);
+// Returns { requestId, ownMessageId }
+// ownMessageId: the Message-ID we set on this email (store it on first send as the thread root).
+export async function sendEmail(input: SendInput): Promise<{ requestId: string; ownMessageId: string }> {
+  const isReply = !!input.threadMessageId;
+
+  // Generate a stable Message-ID for this email
+  const ts = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 15);
+  const rand = Math.random().toString(36).slice(2, 10);
+  const ownMessageId = `<rl-status-${ts}-${rand}@aivar.tech>`;
+
+  const raw = buildMime(input, isReply, ownMessageId);
+  const b64 = Buffer.from(raw, 'utf-8').toString('base64');
 
   try {
     const token = await getAccessToken(input.creds);
-    const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(input.sender)}/sendMail`;
+    const base = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(input.sender)}`;
 
-    // Graph accepts a raw MIME message when Content-Type is text/plain and the
-    // body is the base64-encoded MIME content. This preserves the multipart/
-    // alternative + multipart/related structure (text-fallback + inline images)
-    // exactly as the SES path used to send it.
-    const b64 = Buffer.from(raw, 'utf-8').toString('base64');
-
-    const res = await axios.post(url, b64, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain',
-      },
+    const res = await axios.post(`${base}/sendMail`, b64, {
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'text/plain' },
       timeout: 30000,
       validateStatus: (s) => s >= 200 && s < 300,
     });
 
-    // Graph sendMail returns 202 Accepted with no body. There's no synchronous
-    // message-id; use the request-id from the response for tracing.
     const requestId =
       (res.headers?.['request-id'] as string | undefined) ??
       (res.headers?.['x-ms-ags-diagnostic'] as string | undefined) ??
       '';
-    return requestId;
+
+    return { requestId, ownMessageId };
   } catch (error: any) {
     const detail = error?.response?.data ?? error?.message ?? String(error);
     console.error('Microsoft Graph send failed', detail);
@@ -69,7 +70,7 @@ export async function sendEmail(input: SendInput): Promise<string> {
   }
 }
 
-function buildMime(input: SendInput): string {
+function buildMime(input: SendInput, isReply: boolean, ownMessageId: string): string {
   const mixedBoundary = `mixed_${randomBoundary()}`;
   const altBoundary = `alt_${randomBoundary()}`;
   const relatedBoundary = `rel_${randomBoundary()}`;
@@ -77,10 +78,16 @@ function buildMime(input: SendInput): string {
   const headers: string[] = [
     `From: ${input.sender}`,
     `To: ${input.recipients.join(', ')}`,
-    `Subject: ${encodeSubject(input.subject)}`,
+    `Subject: ${encodeSubject(isReply ? `Re: ${input.subject}` : input.subject)}`,
+    `Message-ID: ${ownMessageId}`,
     'MIME-Version: 1.0',
     `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
   ];
+
+  if (isReply && input.threadMessageId) {
+    headers.push(`In-Reply-To: ${input.threadMessageId}`);
+    headers.push(`References: ${input.threadMessageId}`);
+  }
 
   const body: string[] = [];
   body.push(`--${mixedBoundary}`);

@@ -9,14 +9,11 @@ Parameters:
     AllowedValues: [dev, staging, prod]
   ScheduleExpression:
     Type: String
-    Default: 'cron(0 13 ? * MON-FRI *)'
-    Description: When the daily job runs (UTC). Default = 13:00 UTC (Mon-Fri).
+    Default: 'cron(0 12 ? * MON-FRI *)'
+    Description: When the daily job runs (UTC). Default = 12:00 UTC = 5:30 PM IST (Mon-Fri).
   SenderEmail:
     Type: String
     Description: Microsoft 365 sender mailbox (e.g. status@yourdomain.com).
-  AdminEmail:
-    Type: String
-    Description: Email address that receives failure alerts.
   DayThreshold:
     Type: Number
     Default: 7
@@ -68,13 +65,11 @@ Resources:
       Name: !Sub 'rocketlane/api-key-${Stage}'
       Description: Rocketlane API key for status email job
 
-  AdminAlertTopic:
-    Type: AWS::SNS::Topic
+  GraphCredentialsSecret:
+    Type: AWS::SecretsManager::Secret
     Properties:
-      TopicName: !Sub 'rocketlane-status-email-alerts-${Stage}'
-      Subscription:
-        - Protocol: email
-          Endpoint: !Ref AdminEmail
+      Name: !Sub 'rocketlane/graph-credentials-${Stage}'
+      Description: Microsoft Graph credentials (tenant_id, client_id, client_secret) for sending mail
 
   StatusEmailFunction:
     Type: AWS::Serverless::Function
@@ -87,7 +82,7 @@ Resources:
         Variables:
           PARAM_PREFIX: !Sub '/rocketlane-status-email/${Stage}'
           ROCKETLANE_SECRET_ID: !Ref RocketlaneApiKeySecret
-          ADMIN_ALERT_TOPIC_ARN: !Ref AdminAlertTopic
+          GRAPH_SECRET_ID: !Ref GraphCredentialsSecret
           NODE_OPTIONS: '--enable-source-maps'
       Policies:
         - Statement:
@@ -101,40 +96,18 @@ Resources:
                 - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/rocketlane-status-email/${Stage}/*'
         - AWSSecretsManagerGetSecretValuePolicy:
             SecretArn: !Ref RocketlaneApiKeySecret
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref GraphCredentialsSecret
         - S3ReadPolicy:
             BucketName: !Ref TemplateBucket
         - DynamoDBCrudPolicy:
             TableName: !Ref StatusHistoryTable
-        - Statement:
-            - Effect: Allow
-              Action:
-                - sns:Publish
-              Resource: !Ref AdminAlertTopic
       Events:
         DailySchedule:
           Type: ScheduleV2
           Properties:
             ScheduleExpression: !Ref ScheduleExpression
             Description: Daily Rocketlane status email trigger
-
-  ErrorAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: !Sub 'rocketlane-status-email-errors-${Stage}'
-      AlarmDescription: Triggers when the status email Lambda fails
-      MetricName: Errors
-      Namespace: AWS/Lambda
-      Dimensions:
-        - Name: FunctionName
-          Value: !Ref StatusEmailFunction
-      Statistic: Sum
-      Period: 300
-      EvaluationPeriods: 1
-      Threshold: 1
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: notBreaching
-      AlarmActions:
-        - !Ref AdminAlertTopic
 
   # ---- Config parameters (editable without redeploy) ----
   DayThresholdParam:
@@ -195,34 +168,6 @@ Resources:
       Value: 'true'
       Description: Set to 'false' once Rocketlane API exposes statusUpdatedAt reliably.
 
-  # Microsoft Graph credentials for sending mail via the project mailbox.
-  # NOTE: graph_client_secret is stored as a plain String here. After deploy,
-  # update it manually to a SecureString via the AWS console / CLI for stronger
-  # protection. Rotate periodically.
-  GraphTenantIdParam:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub '/rocketlane-status-email/${Stage}/graph_tenant_id'
-      Type: String
-      Value: 'set-after-deploy'
-      Description: Azure AD tenant (directory) ID. Update via the AWS console after deploy.
-
-  GraphClientIdParam:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub '/rocketlane-status-email/${Stage}/graph_client_id'
-      Type: String
-      Value: 'set-after-deploy'
-      Description: Azure AD app (client) ID. Update via the AWS console after deploy.
-
-  GraphClientSecretParam:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub '/rocketlane-status-email/${Stage}/graph_client_secret'
-      Type: String
-      Value: 'set-after-deploy'
-      Description: Azure AD client secret. SET VIA AWS CONSOLE — do not commit. Convert to SecureString.
-
 Outputs:
   FunctionName:
     Description: Lambda function name
@@ -236,6 +181,6 @@ Outputs:
   SecretArn:
     Description: Secrets Manager ARN for the Rocketlane API key
     Value: !Ref RocketlaneApiKeySecret
-  AlertTopic:
-    Description: SNS topic for failure alerts
-    Value: !Ref AdminAlertTopic
+  GraphSecretArn:
+    Description: Secrets Manager ARN for Microsoft Graph credentials
+    Value: !Ref GraphCredentialsSecret

@@ -2,6 +2,7 @@ import type { ScheduledHandler } from 'aws-lambda';
 import { loadConfig, getRocketlaneApiKey } from './config';
 import { RocketlaneClient } from './rocketlane';
 import { reconcileStatusHistory } from './statusHistory';
+import { getThreadMessageId, saveThreadMessageId } from './thread';
 import { renderSummaryChart, renderRoleStackedChart } from './chart';
 import { renderHtml, renderPlainText, loadLogo } from './render';
 import { sendEmail } from './send';
@@ -34,12 +35,12 @@ export const handler: ScheduledHandler = async () => {
     console.log(`Fetched ${projects.length} flagged project(s) from Rocketlane`);
 
     let statusSinceMap = new Map<string, string>();
+    let threadMessageId: string | undefined;
     if (config.useHistoryTable && config.historyTableName) {
-      statusSinceMap = await reconcileStatusHistory(
-        config.historyTableName,
-        projects,
-        now,
-      );
+      [statusSinceMap, threadMessageId] = await Promise.all([
+        reconcileStatusHistory(config.historyTableName, projects, now),
+        getThreadMessageId(config.historyTableName),
+      ]);
     }
 
     const flagged = projects.map((p) =>
@@ -53,6 +54,8 @@ export const handler: ScheduledHandler = async () => {
 
     const blocked = flagged.filter((p) => p.status === 'BLOCKED');
     const delayed = flagged.filter((p) => p.status === 'DELAYED');
+    const preSales = flagged.filter((p) => p.currentPhase === 'Pre-Sales');
+    const delivery = flagged.filter((p) => p.currentPhase === 'Delivery');
 
     const reportDate = now.toLocaleDateString('en-US', {
       weekday: 'long',
@@ -76,6 +79,8 @@ export const handler: ScheduledHandler = async () => {
     const renderData: RenderInput = {
       blocked,
       delayed,
+      preSales,
+      delivery,
       totalCount: flagged.length,
       dayThreshold: config.dayThreshold,
       reportDate,
@@ -107,13 +112,14 @@ export const handler: ScheduledHandler = async () => {
     if (csmPng) inlineImages.push({ cid: CSM_CID, png: csmPng, filename: 'by-csm.png' });
     if (amPng) inlineImages.push({ cid: AM_CID, png: amPng, filename: 'by-account-manager.png' });
 
-    const messageId = await sendEmail({
+    const { requestId, ownMessageId } = await sendEmail({
       sender: config.sender,
       recipients: config.recipients,
       subject,
       html,
       text,
       inlineImages,
+      threadMessageId,
       creds: {
         tenantId: config.graphTenantId,
         clientId: config.graphClientId,
@@ -121,12 +127,18 @@ export const handler: ScheduledHandler = async () => {
       },
     });
 
+    // On first send, store our own Message-ID as the thread root
+    if (!threadMessageId && ownMessageId && config.historyTableName) {
+      await saveThreadMessageId(config.historyTableName, ownMessageId);
+    }
+
     console.log('Email sent', {
-      messageId,
+      requestId,
       blocked: blocked.length,
       delayed: delayed.length,
       recipients: config.recipients.length,
       charts: inlineImages.length,
+      threading: threadMessageId ? 'reply' : 'root',
     });
   } catch (error) {
     console.error('Job failed', error);
@@ -164,7 +176,7 @@ function buildFlagged(
   return {
     ...project,
     daysInStatus,
-    isUrgent: daysInStatus >= dayThreshold,
+    isUrgent: daysInStatus > dayThreshold,
   };
 }
 

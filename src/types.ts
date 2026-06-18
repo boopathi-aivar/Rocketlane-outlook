@@ -5,6 +5,7 @@ export interface RocketlaneProject {
   name: string;
   status: ProjectStatus | string;
   statusUpdatedAt?: string;
+  currentPhase: string;
   owner: string;
   ownerEmail?: string;
   deliveryManager: string;
@@ -44,6 +45,8 @@ export interface AppConfig {
 export interface RenderInput {
   blocked: FlaggedProject[];
   delayed: FlaggedProject[];
+  preSales: FlaggedProject[];
+  delivery: FlaggedProject[];
   totalCount: number;
   dayThreshold: number;
   reportDate: string;

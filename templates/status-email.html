@@ -10,6 +10,8 @@
     <tr>
       <td align="center" style="padding:24px 12px;">
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="900" style="background:#ffffff; border-radius:12px; overflow:hidden; max-width:900px; box-shadow:0 2px 6px rgba(61,73,94,0.10);">
+
+          <!-- Header -->
           <tr>
             <td style="background:#3d495e; padding:24px 28px; color:#ffffff;">
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
@@ -36,6 +38,7 @@
           </tr>
 
           {{#if totalCount}}
+            <!-- Summary chart -->
             {{#if hasSummaryChart}}
               <tr>
                 <td style="padding:24px 24px 8px; text-align:center;">
@@ -46,18 +49,18 @@
 
             <tr>
               <td style="padding:4px 24px 16px; text-align:center; font-size:13px; color:#5a6679;">
-                Projects in flagged status for <strong style="color:#3d495e;">{{dayThreshold}}</strong> or more days are highlighted as urgent.
+                Projects in flagged status for more than <strong style="color:#3d495e;">{{dayThreshold}}</strong> days are highlighted as urgent.
               </td>
             </tr>
 
-            {{#if hasDmChart}}
+            <!-- Role workload charts -->
+            {{#if hasAmChart}}
               <tr>
                 <td style="padding:8px 24px; text-align:center;">
-                  <img src="cid:{{dmChartCid}}" alt="Workload by Delivery Manager" width="820" style="max-width:100%; height:auto; border:0;">
+                  <img src="cid:{{amChartCid}}" alt="Workload by Account Manager" width="820" style="max-width:100%; height:auto; border:0;">
                 </td>
               </tr>
             {{/if}}
-
             {{#if hasCsmChart}}
               <tr>
                 <td style="padding:8px 24px; text-align:center;">
@@ -65,25 +68,35 @@
                 </td>
               </tr>
             {{/if}}
-
-            {{#if hasAmChart}}
+            {{#if hasDmChart}}
               <tr>
                 <td style="padding:8px 24px 16px; text-align:center;">
-                  <img src="cid:{{amChartCid}}" alt="Workload by Account Manager" width="820" style="max-width:100%; height:auto; border:0;">
+                  <img src="cid:{{dmChartCid}}" alt="Workload by Delivery Manager" width="820" style="max-width:100%; height:auto; border:0;">
                 </td>
               </tr>
             {{/if}}
 
-            {{#if blocked.length}}
+            <!-- PRE-SALES section -->
+            {{#if preSales.length}}
               <tr>
-                <td style="padding:12px 24px;">
-                  <div style="font-size:18px; font-weight:700; color:#d93025; margin-bottom:10px;">
-                    Blocked &middot; {{blocked.length}}
-                  </div>
+                <td style="padding:12px 24px 4px;">
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td style="padding:10px 14px; background:#f0eeff; border-left:4px solid #7a68ff; border-radius:4px;">
+                        <span style="font-size:15px; font-weight:700; color:#7a68ff;">Pre-Sales</span>
+                        <span style="font-size:13px; color:#5a6679; margin-left:8px;">{{preSales.length}} project{{#if (gt preSales.length 1)}}s{{/if}}</span>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:8px 24px 20px;">
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse; font-size:12px;">
                     <thead>
                       <tr style="background:#f4f5f8;">
                         <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Project</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Status</th>
                         <th align="right" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Days</th>
                         <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Owner</th>
                         <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">DM</th>
@@ -94,11 +107,14 @@
                       </tr>
                     </thead>
                     <tbody>
-                      {{#each blocked}}
+                      {{#each preSales}}
                         <tr style="background:{{#if isUrgent}}#fff3cd{{else}}#ffffff{{/if}};">
                           <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top;">
-                            <a href="{{url}}" style="color:#7a68ff; text-decoration:none; font-weight:700;">{{name}}</a>
+                            <a href="{{url}}" style="color:#7a68ff; text-decoration:underline; font-weight:700;">{{name}}</a>
                             {{#if isUrgent}}<span style="display:inline-block; padding:2px 6px; background:#d93025; color:#ffffff; font-size:10px; font-weight:700; border-radius:3px; margin-left:6px; vertical-align:middle;">URGENT</span>{{/if}}
+                          </td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top;">
+                            {{#if (eq status "BLOCKED")}}<span style="display:inline-block; padding:2px 8px; background:#fce8e6; color:#d93025; font-size:10px; font-weight:700; border-radius:3px;">BLOCKED</span>{{else}}<span style="display:inline-block; padding:2px 8px; background:#fef7e0; color:#b78103; font-size:10px; font-weight:700; border-radius:3px;">DELAYED</span>{{/if}}
                           </td>
                           <td align="right" style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; font-weight:700; color:{{#if isUrgent}}#d93025{{else}}#3d495e{{/if}};">{{daysInStatus}}</td>
                           <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; color:#3d495e;">{{owner}}</td>
@@ -115,16 +131,27 @@
               </tr>
             {{/if}}
 
-            {{#if delayed.length}}
+            <!-- DELIVERY section -->
+            {{#if delivery.length}}
               <tr>
-                <td style="padding:20px 24px 24px;">
-                  <div style="font-size:18px; font-weight:700; color:#b78103; margin-bottom:10px;">
-                    Delayed &middot; {{delayed.length}}
-                  </div>
+                <td style="padding:12px 24px 4px;">
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td style="padding:10px 14px; background:#e6f4ea; border-left:4px solid #34a853; border-radius:4px;">
+                        <span style="font-size:15px; font-weight:700; color:#1e7e34;">Delivery</span>
+                        <span style="font-size:13px; color:#5a6679; margin-left:8px;">{{delivery.length}} project{{#if (gt delivery.length 1)}}s{{/if}}</span>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:8px 24px 20px;">
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse; font-size:12px;">
                     <thead>
                       <tr style="background:#f4f5f8;">
                         <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Project</th>
+                        <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Status</th>
                         <th align="right" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Days</th>
                         <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">Owner</th>
                         <th align="left" style="padding:10px 8px; border-bottom:2px solid #d8dde6; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#5a6679;">DM</th>
@@ -135,11 +162,14 @@
                       </tr>
                     </thead>
                     <tbody>
-                      {{#each delayed}}
+                      {{#each delivery}}
                         <tr style="background:{{#if isUrgent}}#fff3cd{{else}}#ffffff{{/if}};">
                           <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top;">
-                            <a href="{{url}}" style="color:#7a68ff; text-decoration:none; font-weight:700;">{{name}}</a>
+                            <a href="{{url}}" style="color:#7a68ff; text-decoration:underline; font-weight:700;">{{name}}</a>
                             {{#if isUrgent}}<span style="display:inline-block; padding:2px 6px; background:#d93025; color:#ffffff; font-size:10px; font-weight:700; border-radius:3px; margin-left:6px; vertical-align:middle;">URGENT</span>{{/if}}
+                          </td>
+                          <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top;">
+                            {{#if (eq status "BLOCKED")}}<span style="display:inline-block; padding:2px 8px; background:#fce8e6; color:#d93025; font-size:10px; font-weight:700; border-radius:3px;">BLOCKED</span>{{else}}<span style="display:inline-block; padding:2px 8px; background:#fef7e0; color:#b78103; font-size:10px; font-weight:700; border-radius:3px;">DELAYED</span>{{/if}}
                           </td>
                           <td align="right" style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; font-weight:700; color:{{#if isUrgent}}#d93025{{else}}#3d495e{{/if}};">{{daysInStatus}}</td>
                           <td style="padding:12px 8px; border-bottom:1px solid #eef0f4; vertical-align:top; color:#3d495e;">{{owner}}</td>
@@ -155,6 +185,7 @@
                 </td>
               </tr>
             {{/if}}
+
           {{else}}
             <tr>
               <td style="padding:48px 24px; text-align:center;">
@@ -164,11 +195,13 @@
             </tr>
           {{/if}}
 
+          <!-- Footer -->
           <tr>
             <td style="padding:18px 24px; background:#f4f5f8; border-top:1px solid #d8dde6; font-size:12px; color:#5a6679; text-align:center;">
               <span style="color:#7a68ff; font-weight:700;">AI</span><span style="color:#3d495e; font-weight:700;">VAR</span> Delivery &middot; Automated status digest
             </td>
           </tr>
+
         </table>
       </td>
     </tr>

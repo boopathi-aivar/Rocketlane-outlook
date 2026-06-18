@@ -92,6 +92,8 @@ async function main(): Promise<void> {
 
   const blocked = flagged.filter((p) => p.status === 'BLOCKED');
   const delayed = flagged.filter((p) => p.status === 'DELAYED');
+  const preSales = flagged.filter((p) => p.currentPhase === 'Pre-Sales');
+  const delivery = flagged.filter((p) => p.currentPhase === 'Delivery');
 
   const reportDate = now.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -129,6 +131,8 @@ async function main(): Promise<void> {
   const renderData: RenderInput = {
     blocked,
     delayed,
+    preSales,
+    delivery,
     totalCount: flagged.length,
     dayThreshold,
     reportDate,

@@ -10,33 +10,19 @@ const secrets = new SecretsManagerClient({});
 
 const PARAM_PREFIX = process.env.PARAM_PREFIX ?? '/rocketlane-status-email/prod';
 const SECRET_ID = process.env.ROCKETLANE_SECRET_ID ?? 'rocketlane/api-key';
+const GRAPH_SECRET_ID = process.env.GRAPH_SECRET_ID ?? 'rocketlane/graph-credentials';
 
 let cachedConfig: AppConfig | null = null;
 let cachedApiKey: string | null = null;
+let cachedGraphCreds: { tenantId: string; clientId: string; clientSecret: string } | null = null;
 
 export async function loadConfig(): Promise<AppConfig> {
   if (cachedConfig) return cachedConfig;
 
-  const params = new Map<string, string>();
-  let nextToken: string | undefined;
-
-  do {
-    const res = await ssm.send(
-      new GetParametersByPathCommand({
-        Path: PARAM_PREFIX,
-        Recursive: false,
-        WithDecryption: true,
-        NextToken: nextToken,
-      }),
-    );
-    for (const p of res.Parameters ?? []) {
-      if (p.Name && p.Value !== undefined) {
-        const key = p.Name.slice(PARAM_PREFIX.length + 1);
-        params.set(key, p.Value);
-      }
-    }
-    nextToken = res.NextToken;
-  } while (nextToken);
+  const [params, graphCreds] = await Promise.all([
+    fetchSsmParams(),
+    loadGraphCredentials(),
+  ]);
 
   const required = (key: string): string => {
     const v = params.get(key);
@@ -64,12 +50,48 @@ export async function loadConfig(): Promise<AppConfig> {
     logoKey: optional('logo_key', 'templates/assets/aivar-logo.png'),
     historyTableName: optional('history_table_name', ''),
     useHistoryTable: optional('use_history_table', 'false') === 'true',
-    graphTenantId: required('graph_tenant_id'),
-    graphClientId: required('graph_client_id'),
-    graphClientSecret: required('graph_client_secret'),
+    graphTenantId: graphCreds.tenantId,
+    graphClientId: graphCreds.clientId,
+    graphClientSecret: graphCreds.clientSecret,
   };
 
   return cachedConfig;
+}
+
+async function fetchSsmParams(): Promise<Map<string, string>> {
+  const params = new Map<string, string>();
+  let nextToken: string | undefined;
+  do {
+    const res = await ssm.send(
+      new GetParametersByPathCommand({
+        Path: PARAM_PREFIX,
+        Recursive: false,
+        WithDecryption: true,
+        NextToken: nextToken,
+      }),
+    );
+    for (const p of res.Parameters ?? []) {
+      if (p.Name && p.Value !== undefined) {
+        const key = p.Name.slice(PARAM_PREFIX.length + 1);
+        params.set(key, p.Value);
+      }
+    }
+    nextToken = res.NextToken;
+  } while (nextToken);
+  return params;
+}
+
+export async function loadGraphCredentials(): Promise<{ tenantId: string; clientId: string; clientSecret: string }> {
+  if (cachedGraphCreds) return cachedGraphCreds;
+  const res = await secrets.send(new GetSecretValueCommand({ SecretId: GRAPH_SECRET_ID }));
+  if (!res.SecretString) throw new Error(`Secret ${GRAPH_SECRET_ID} has no SecretString value`);
+  const parsed = JSON.parse(res.SecretString);
+  cachedGraphCreds = {
+    tenantId: parsed.tenant_id,
+    clientId: parsed.client_id,
+    clientSecret: parsed.client_secret,
+  };
+  return cachedGraphCreds;
 }
 
 export async function getRocketlaneApiKey(): Promise<string> {

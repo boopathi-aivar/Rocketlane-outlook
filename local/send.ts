@@ -28,6 +28,7 @@ import { renderSummaryChart, renderRoleStackedChart } from '../src/chart';
 import { renderPlainText } from '../src/render';
 import { sendEmail, type InlineImage } from '../src/send';
 import { reconcileLocalHistory } from './history';
+import { getLocalThreadMessageId, saveLocalThreadMessageId } from './thread';
 import type {
   FlaggedProject,
   RenderInput,
@@ -113,13 +114,14 @@ async function main(): Promise<void> {
   // Use the same JSON-file history stub as local/run.ts so days-in-status
   // matches the preview and the URGENT badge fires correctly.
   const sinceMap = reconcileLocalHistory(projects, now);
+  const threadMessageId = getLocalThreadMessageId();
 
   const flagged: FlaggedProject[] = projects.map((p) => {
     const sinceIso = p.statusUpdatedAt ?? sinceMap.get(p.id) ?? now.toISOString();
     const since = new Date(sinceIso);
     const sinceMs = Number.isNaN(since.getTime()) ? now.getTime() : since.getTime();
     const daysInStatus = Math.max(0, Math.floor((now.getTime() - sinceMs) / MS_PER_DAY));
-    return { ...p, daysInStatus, isUrgent: daysInStatus >= dayThreshold };
+    return { ...p, daysInStatus, isUrgent: daysInStatus > dayThreshold };
   });
 
   flagged.sort((a, b) => {
@@ -129,6 +131,8 @@ async function main(): Promise<void> {
 
   const blocked = flagged.filter((p) => p.status === 'BLOCKED');
   const delayed = flagged.filter((p) => p.status === 'DELAYED');
+  const preSales = flagged.filter((p) => p.currentPhase === 'Pre-Sales');
+  const delivery = flagged.filter((p) => p.currentPhase === 'Delivery');
 
   const reportDate = now.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -165,6 +169,8 @@ async function main(): Promise<void> {
   const renderData: RenderInput = {
     blocked,
     delayed,
+    preSales,
+    delivery,
     totalCount: flagged.length,
     dayThreshold,
     reportDate,
@@ -213,21 +219,27 @@ async function main(): Promise<void> {
   }
 
   console.log('Sending via Microsoft Graph…');
-  const requestId = await sendEmail({
+  const { requestId, ownMessageId } = await sendEmail({
     sender,
     recipients: to,
     subject,
     html,
     text,
     inlineImages,
+    threadMessageId,
     creds: { tenantId, clientId, clientSecret },
   });
+
+  if (!threadMessageId && ownMessageId) {
+    saveLocalThreadMessageId(ownMessageId);
+  }
 
   console.log('Sent.', {
     requestId,
     blocked: blocked.length,
     delayed: delayed.length,
     recipients: to,
+    threading: threadMessageId ? 'reply' : 'root',
   });
 }
 

@@ -67,12 +67,16 @@ export class RocketlaneClient {
         ? statusObj
         : statusObj?.label ?? statusObj?.name ?? statusGuess;
 
-    // No statusUpdatedAt exposed by this API — days-in-status relies on DynamoDB tracking
-    const statusUpdatedAt =
-      statusObj?.updatedAt ??
-      statusObj?.lastUpdatedAt ??
-      r.statusUpdatedAt ??
-      r.statusLastChangedAt;
+    // No dedicated status-change timestamp in this API — rely on DynamoDB/local history.
+    // Only use explicit API fields (not statusObj?.updatedAt which is the status object's
+    // own modification time, unrelated to when the project status changed).
+    const rawStatusDate = r.statusUpdatedAt ?? r.statusLastChangedAt;
+    const statusUpdatedAt: string | undefined = (() => {
+      if (rawStatusDate == null) return undefined;
+      const n = Number(rawStatusDate);
+      const d = Number.isFinite(n) && n > 0 ? new Date(n) : new Date(String(rawStatusDate));
+      return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+    })();
 
     const id = String(r.projectId ?? r.id ?? '');
 
@@ -83,6 +87,8 @@ export class RocketlaneClient {
         ownerObj.emailId ||
         'Unassigned'
       : r.ownerName ?? 'Unassigned';
+
+    const currentPhase = extractField(r.fields, 'Current Phase') ?? 'Other';
 
     // Reason: per spec, picked from the "Action Item" custom field (HTML stripped).
     const reason = extractField(r.fields, 'Action Item') ?? '—';
@@ -107,7 +113,8 @@ export class RocketlaneClient {
       id,
       name: r.projectName ?? r.name ?? 'Untitled project',
       status: String(statusLabel).toUpperCase(),
-      statusUpdatedAt: statusUpdatedAt ? String(statusUpdatedAt) : undefined,
+      statusUpdatedAt,
+      currentPhase,
       owner: ownerName,
       ownerEmail: ownerObj?.emailId ?? ownerObj?.email,
       deliveryManager,

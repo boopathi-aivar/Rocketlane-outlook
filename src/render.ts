@@ -21,6 +21,7 @@ Handlebars.registerHelper('formatDate', (iso: unknown) => {
 });
 
 Handlebars.registerHelper('gt', (a: number, b: number) => a > b);
+Handlebars.registerHelper('eq', (a: unknown, b: unknown) => a === b);
 
 async function loadTemplate(
   bucket: string,
@@ -87,6 +88,7 @@ export function renderPlainText(data: RenderInput): string {
     for (const p of items) {
       const urgent = p.isUrgent ? ' [URGENT]' : '';
       lines.push(`* ${p.name}${urgent}`);
+      lines.push(`  Status: ${p.status}`);
       lines.push(`  Days in status: ${p.daysInStatus}`);
       lines.push(`  Owner: ${p.owner}`);
       lines.push(`  Delivery Manager: ${p.deliveryManager}`);
@@ -101,8 +103,8 @@ export function renderPlainText(data: RenderInput): string {
     }
   };
 
-  section('BLOCKED', data.blocked);
-  section('DELAYED', data.delayed);
+  section('PRE-SALES', data.preSales);
+  section('DELIVERY', data.delivery);
 
   lines.push('— Automated by AIVAR Delivery.');
   return lines.join('\n');
